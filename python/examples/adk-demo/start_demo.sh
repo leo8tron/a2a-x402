@@ -11,7 +11,7 @@
 # 环境变量（可在 .env 文件中设置，或在运行前 export）:
 #   GOOGLE_API_KEY       — 必填，Google Gemini API Key
 #   TRON_PRIVATE_KEY     — 必填，Tron 钱包私钥（64位十六进制）
-#   FACILITATOR_URL      — 必填，Facilitator 服务地址（默认 http://0.0.0.0:8001）
+#   FACILITATOR_URL      — 必填，Facilitator 服务地址（默认 https://facilitator.bankofai.io）
 #   SERVER_HOST          — 可选，Merchant Server 监听地址（默认 0.0.0.0）
 #   SERVER_PORT          — 可选，Merchant Server 端口（默认 8000）
 #   CLIENT_PORT          — 可选，ADK Web UI 端口（默认 8080）
@@ -58,7 +58,7 @@ SERVER_HOST="${SERVER_HOST:-0.0.0.0}"
 SERVER_PORT="${SERVER_PORT:-8000}"
 CLIENT_PORT="${CLIENT_PORT:-8080}"
 TRON_NETWORK="${TRON_NETWORK:-tron:nile}"
-FACILITATOR_URL="${FACILITATOR_URL:-http://0.0.0.0:8001}"
+FACILITATOR_URL="${FACILITATOR_URL:-https://facilitator.bankofai.io}"
 
 export TRON_NETWORK FACILITATOR_URL SERVER_HOST SERVER_PORT
 
