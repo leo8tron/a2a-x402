@@ -154,7 +154,7 @@ You are a master orchestrator agent. Your job is to complete user requests by de
                 )
 
             # Sign the payment and prepare the payload for the merchant.
-            signed_payload = self.wallet.sign_payment(requirements)
+            signed_payload = await self.wallet.sign_payment(requirements)
             message_metadata[self.x402.PAYLOAD_KEY] = signed_payload.model_dump(
                 by_alias=True
             )
@@ -209,11 +209,10 @@ You are a master orchestrator agent. Your job is to complete user requests by de
 
             # Extract details for the confirmation message.
             payment_option = requirements.accepts[0]
-            currency_amount = payment_option.max_amount_required
-            currency_name = payment_option.extra.get("name", "TOKEN")
-            product_name = payment_option.extra.get("product", {}).get(
-                "name", "the item"
-            )
+            currency_amount = payment_option.amount
+            currency_name = payment_option.extra.name if payment_option.extra else "TOKEN"
+            # product name is not in the new schema; fall back to a generic label
+            product_name = "the item"
 
             return f"The merchant is requesting payment for '{product_name}' for {currency_amount} {currency_name}. Do you want to approve this payment?"
 
@@ -227,15 +226,20 @@ You are a master orchestrator agent. Your job is to complete user requests by de
                         if isinstance(part_root, TextPart):
                             final_text.append(part_root.text)
 
+            # Retrieve payment receipt to show tx hash
+            receipt = self.x402.get_latest_receipt(response_task)
+            tx_hash = getattr(receipt, "transaction", None) if receipt else None
+            tx_msg = f"\nTx Hash: {tx_hash}" if tx_hash else ""
+
             if final_text:
-                return " ".join(final_text)
+                return " ".join(final_text) + tx_msg
 
             # Fallback for tasks with no text artifacts (e.g., payment settlement)
             if (
                 self.x402.get_payment_status(response_task)
                 == PaymentStatus.PAYMENT_COMPLETED
             ):
-                return "Payment successful! Your purchase is complete."
+                return f"Payment successful! Your purchase is complete.{tx_msg}"
 
             return f"Task with {agent_name} is {response_task.status.state.value}."
 

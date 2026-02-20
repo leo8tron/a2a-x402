@@ -14,8 +14,7 @@
 """Payment requirements creation functions."""
 
 from typing import Optional, Any, cast
-from x402.common import process_price_to_atomic_amount
-from x402.types import Price
+from .._compat import process_price_to_atomic_amount, Price
 from ..types import PaymentRequirements, SupportedNetworks
 
 

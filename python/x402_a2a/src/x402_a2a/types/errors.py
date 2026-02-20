@@ -14,7 +14,7 @@
 """Protocol error types and error code mapping."""
 
 from typing import List, Union, Optional
-from x402.types import PaymentRequirements, TokenAmount
+from .._compat import PaymentRequirements, TokenAmount
 
 
 class x402Error(Exception):

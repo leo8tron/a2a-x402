@@ -6,14 +6,13 @@ requires-python = ">=3.13"
 dependencies = [
     "a2a-sdk",
     "google-adk>=0.5.0",
-    "x402>=0.1.4",
     "click>=8.2.0",
-    "eth-account>=0.13.7",
     "httpx>=0.28.1",
     "uvicorn>=0.34.2",
     "web3>=7.10.0",
     "cdp-sdk>=1.20.0",
     "x402-a2a",
+    "bankofai-x402[tron]",
 ]
 
 [build-system]
@@ -34,6 +33,7 @@ members = ["client"]
 
 [tool.uv.sources]
 x402-a2a = { path = "../../../python/x402_a2a", editable = true }
+bankofai-x402 = { git = "https://github.com/bankofai/x402", tag = "v0.3.1", subdirectory = "python/x402" }
 
 [tool.ruff]
 target-version = "py313"

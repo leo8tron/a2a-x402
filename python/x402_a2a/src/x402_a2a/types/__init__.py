@@ -25,7 +25,7 @@ from a2a.types import (
 from a2a.server.agent_execution.agent_executor import AgentExecutor
 from a2a.server.agent_execution.context import RequestContext
 from a2a.server.events.event_queue import EventQueue
-from x402.types import (
+from .._compat import (
     PaymentRequirements,
     x402PaymentRequiredResponse,
     PaymentPayload,
@@ -38,7 +38,7 @@ from x402.types import (
     EIP712Domain,
     SupportedNetworks,
 )
-from x402.facilitator import FacilitatorConfig, FacilitatorClient
+from .._compat import FacilitatorConfig, FacilitatorClient
 
 from .state import PaymentStatus, x402Metadata
 

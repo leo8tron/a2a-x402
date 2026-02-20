@@ -12,21 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import hashlib
+import os
 from typing import override
 
 from a2a.types import AgentCard, AgentCapabilities, AgentSkill
 from google.adk.agents import LlmAgent
 from google.adk.agents.callback_context import CallbackContext
 from google.genai import types
-from x402_a2a.types import PaymentRequirements
+from bankofai.x402.types import PaymentRequirements, PaymentRequirementsExtra
 
 # Import the custom exception and the base agent interface
 from .base_agent import BaseAgent
 from x402_a2a.types import x402PaymentRequiredException
 from x402_a2a import x402Utils, get_extension_declaration
+from bankofai.x402.tokens.registry import TokenRegistry
 
-# This is the new, clean ADK Merchant Agent.
-# It now implements the BaseAgent interface.
+# Tron network config from environment (with Nile testnet defaults)
+_TRON_NETWORK   = os.getenv("TRON_NETWORK", "tron:nile")
+# Merchant's Tron wallet address (receives payment)
+_PAY_TO_ADDRESS = os.getenv("PAY_TO_ADDRESS", "")
 
 
 class AdkMerchantAgent(BaseAgent):
@@ -35,20 +39,13 @@ class AdkMerchantAgent(BaseAgent):
     The business logic is implemented as tools.
     """
 
-    def __init__(
-        self, wallet_address: str = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
-    ):
-        self._wallet_address = wallet_address
+    def __init__(self):
+        if not _PAY_TO_ADDRESS:
+            raise ValueError(
+                "PAY_TO_ADDRESS environment variable is not set. "
+                "Please set it to the merchant's Tron wallet address."
+            )
         self.x402 = x402Utils()
-
-    def _get_product_price(self, product_name: str) -> str:
-        """Generates a deterministic price for a product."""
-        price = (
-            int(hashlib.sha256(product_name.lower().encode()).hexdigest(), 16)
-            % 99900001
-            + 5000
-        )
-        return str(price)
 
     def get_product_details_and_request_payment(self, product_name: str) -> dict:
         """
@@ -58,30 +55,22 @@ class AdkMerchantAgent(BaseAgent):
         if not product_name:
             return {"error": "Product name cannot be empty."}
 
-        price = self._get_product_price(product_name)
+        asset_info = TokenRegistry.parse_price("0.0001 USDT", _TRON_NETWORK)
+
         requirements = PaymentRequirements(
-            scheme="exact",
-            network="base-sepolia",
-            asset="0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-            pay_to=self._wallet_address,
-            max_amount_required=price,
-            description=f"Payment for: {product_name}",
-            resource=f"https://example.com/product/{product_name}",
-            mime_type="application/json",
-            max_timeout_seconds=1200,
-            extra={
-                "name": "USDC",
-                "version": "2",
-                "product": {
-                    "sku": f"{product_name}_sku",
-                    "name": product_name,
-                    "version": "1",
-                },
-            },
+            scheme="exact_permit",
+            network=_TRON_NETWORK,
+            amount=str(asset_info["amount"]),
+            asset=asset_info["asset"],
+            payTo=_PAY_TO_ADDRESS,
+            maxTimeoutSeconds=1200,
+            extra=PaymentRequirementsExtra(
+                name=asset_info["symbol"],
+                version=asset_info["version"],
+            ),
         )
 
         # Signal to the x402ServerAgentExecutor that payment is required.
-        # The wrapper will catch this and handle the A2A flow.
         raise x402PaymentRequiredException(product_name, requirements)
 
     def before_agent_callback(self, callback_context: CallbackContext):

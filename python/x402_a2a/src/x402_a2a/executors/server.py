@@ -14,8 +14,10 @@
 """Server-side executor for merchant implementations."""
 
 import logging
+import time
+import uuid
 from abc import ABCMeta, abstractmethod
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
 
 from a2a.server.tasks import TaskUpdater
 
@@ -36,6 +38,11 @@ from ..types import (
     TaskState,
     x402PaymentRequiredResponse,
     VerifyResponse,
+)
+from bankofai.x402.types import (
+    PaymentRequiredExtensions,
+    PaymentPermitContext,
+    PaymentPermitContextMeta,
 )
 
 
@@ -285,8 +292,8 @@ class x402ServerExecutor(x402BaseExecutor, metaclass=ABCMeta):
         """
         logger.info("Searching for matching payment requirement...")
         for requirement in accepts_array:
-            scheme_match = requirement.scheme == payment_payload.scheme
-            network_match = requirement.network == payment_payload.network
+            scheme_match = requirement.scheme == payment_payload.accepted.scheme
+            network_match = requirement.network == payment_payload.accepted.network
 
             if scheme_match and network_match:
                 logger.info("  => Found a matching payment requirement.")
@@ -321,6 +328,19 @@ class x402ServerExecutor(x402BaseExecutor, metaclass=ABCMeta):
             return None
 
         return self._find_matching_payment_requirement(accepts_array, payment_payload)
+
+    async def _enrich_accepts(
+        self, accepts_array: List[PaymentRequirements]
+    ) -> List[PaymentRequirements]:
+        """Optionally enrich payment requirements before sending to client.
+
+        Subclasses can override this to call the Facilitator's /fee/quote
+        and inject fee info into PaymentRequirements.extra.fee so the client
+        signs with the correct fee_to address.
+
+        Default implementation returns the list unchanged.
+        """
+        return accepts_array
 
     async def _handle_payment_required_exception(
         self,
@@ -357,11 +377,34 @@ class x402ServerExecutor(x402BaseExecutor, metaclass=ABCMeta):
         accepts_array = exception.get_accepts_array()
         error_message = str(exception)
 
-        # Store payment requirements for later correlation
+        # Allow subclasses to enrich requirements with fee info from Facilitator
+        accepts_array = await self._enrich_accepts(accepts_array)
+
+        # Store (enriched) payment requirements for later correlation
         self._payment_requirements_store[task.id] = accepts_array
 
+        # Generate paymentPermitContext required by the exact_permit scheme.
+        # The client needs this to build and sign the PaymentPermit.
+        # paymentId must be a 0x-prefixed 32-char hex string (16 bytes).
+        now = int(time.time())
+        payment_id_hex = "0x" + uuid.uuid4().hex  # e.g. "0x03c27053ecdd4075b3f4ceae3e5d3bce"
+        extensions = PaymentRequiredExtensions(
+            paymentPermitContext=PaymentPermitContext(
+                meta=PaymentPermitContextMeta(
+                    kind="PAYMENT_ONLY",
+                    paymentId=payment_id_hex,
+                    nonce=str(int(time.time() * 1000)),
+                    validAfter=now - 60,       # 1 min grace for clock skew
+                    validBefore=now + 1200,    # 20 min validity window
+                )
+            )
+        )
+
         payment_required = x402PaymentRequiredResponse(
-            x402_version=1, accepts=accepts_array, error=error_message
+            x402_version=1,
+            accepts=accepts_array,
+            error=error_message,
+            extensions=extensions,
         )
 
         # Update task with payment requirements

@@ -17,7 +17,7 @@ from typing import Optional, Union
 from pydantic import BaseModel
 
 
-from x402.types import TokenAmount
+from .._compat import TokenAmount
 
 
 X402_EXTENSION_URI = "https://github.com/google-a2a/a2a-x402/v0.1"

@@ -13,8 +13,8 @@
 # limitations under the License.
 """x402_a2a - x402 Payment Protocol Extension for A2A."""
 
-# Core x402 Protocol Types (from x402.types)
-from x402.types import (
+# Core x402 Protocol Types (via compatibility layer for bankofai-x402)
+from ._compat import (
     PaymentRequirements,
     x402PaymentRequiredResponse,
     PaymentPayload,
@@ -28,7 +28,7 @@ from x402.types import (
     VerifyResponse,
 )
 
-from x402.facilitator import FacilitatorConfig, FacilitatorClient
+from ._compat import FacilitatorConfig, FacilitatorClient
 
 # A2A Extension Types & Functions
 from .types import (

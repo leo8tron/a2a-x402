@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
+
 import httpx
 
 # Local imports
@@ -18,9 +20,11 @@ from client_agent._task_store import TaskStore
 from client_agent.client_agent import ClientAgent
 from client_agent.wallet import MockLocalWallet
 
+server_port = os.getenv("SERVER_PORT", "8000")
+
 root_agent = ClientAgent(
     remote_agent_addresses=[
-        "http://localhost:10000/agents/merchant_agent",
+        f"http://localhost:{server_port}/agents/merchant_agent",
     ],
     http_client=httpx.AsyncClient(timeout=30),
     wallet=MockLocalWallet(),

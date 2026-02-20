@@ -11,10 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
 from abc import ABC, abstractmethod
-import eth_account
 
-from x402_a2a.types import PaymentPayload, x402PaymentRequiredResponse
+from bankofai.x402.clients import X402Client
+from bankofai.x402.mechanisms.tron import ExactPermitTronClientMechanism
+from bankofai.x402.signers.client import TronClientSigner
+from bankofai.x402.types import PaymentRequired as x402PaymentRequiredResponse
+
+from x402_a2a.types import PaymentPayload
 from x402_a2a.core.wallet import process_payment_required
 
 
@@ -26,26 +31,45 @@ class Wallet(ABC):
     """
 
     @abstractmethod
-    def sign_payment(self, requirements: x402PaymentRequiredResponse) -> PaymentPayload:
+    async def sign_payment(self, requirements: x402PaymentRequiredResponse) -> PaymentPayload:
         """
         Signs a payment requirement and returns the signed payload.
         """
         raise NotImplementedError
 
 
-class MockLocalWallet(Wallet):
+class TronLocalWallet(Wallet):
     """
-    A mock wallet implementation that uses a hardcoded local private key.
-    FOR DEMONSTRATION PURPOSES ONLY. DO NOT USE IN PRODUCTION.
+    A local Tron wallet that signs payments using a private key from the environment.
+
+    Reads TRON_PRIVATE_KEY and TRON_NETWORK from environment variables.
+    FOR DEMONSTRATION PURPOSES ONLY. Store private keys securely in production.
     """
 
-    def sign_payment(self, requirements: x402PaymentRequiredResponse) -> PaymentPayload:
-        """
-        Signs a payment requirement using x402.exact EIP-3009 signing.
-        """
-        private_key = (
-            "0x0000000000000000000000000000000000000000000000000000000000000001"
-        )
-        account = eth_account.Account.from_key(private_key)
+    def __init__(self) -> None:
+        private_key = os.environ.get("TRON_PRIVATE_KEY")
+        if not private_key:
+            raise ValueError(
+                "TRON_PRIVATE_KEY environment variable is not set. "
+                "Please set it to your Tron wallet private key (hex string)."
+            )
+        network = os.environ.get("TRON_NETWORK", "tron:nile")
 
-        return process_payment_required(requirements, account)
+        signer = TronClientSigner.from_private_key(private_key)
+        mechanism = ExactPermitTronClientMechanism(signer)
+
+        self._client = X402Client()
+        self._client.register(network, mechanism)
+        self._network = network
+        self._address = signer.get_address()
+
+    async def sign_payment(self, requirements: x402PaymentRequiredResponse) -> PaymentPayload:
+        """
+        Signs a payment requirement using Tron ExactPermit signing.
+        """
+        return await process_payment_required(requirements, self._client)
+
+
+# Alias for backward compatibility with demo code that references MockLocalWallet
+MockLocalWallet = TronLocalWallet
+
