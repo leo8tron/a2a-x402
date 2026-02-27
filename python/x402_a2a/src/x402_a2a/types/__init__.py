@@ -36,7 +36,6 @@ from .._compat import (
     TokenAmount,
     TokenAsset,
     EIP712Domain,
-    SupportedNetworks,
 )
 from .._compat import FacilitatorConfig, FacilitatorClient
 
@@ -81,7 +80,6 @@ __all__ = [
     "TokenAmount",
     "TokenAsset",
     "EIP712Domain",
-    "SupportedNetworks",
     "FacilitatorConfig",
     "FacilitatorClient",
     "PaymentStatus",

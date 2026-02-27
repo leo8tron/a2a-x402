@@ -24,7 +24,6 @@ from ._compat import (
     TokenAmount,
     TokenAsset,
     EIP712Domain,
-    SupportedNetworks,
     VerifyResponse,
 )
 

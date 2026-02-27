@@ -17,9 +17,11 @@ This module re-exports types from bankofai.x402 and provides stub definitions
 for types that only exist in the original Coinbase x402 SDK (e.g., EVM-specific types).
 """
 
-from typing import Any, Literal, Optional, Union
+from typing import Any, Optional, Union
 
 from pydantic import BaseModel, Field
+
+from bankofai.x402.tokens.registry import TokenRegistry
 
 # =============================================================================
 # Re-exports from bankofai.x402 (types that exist in both SDKs)
@@ -34,13 +36,16 @@ from bankofai.x402.types import PaymentRequired as x402PaymentRequiredResponse
 from bankofai.x402.facilitator import FacilitatorClient
 
 # =============================================================================
-# Stub types: these exist in the original Coinbase x402 SDK but not in bankofai-x402.
-# They are defined here so existing code continues to compile.
+# Compatibility types
+#
+# These types model the payload/domain shapes used by x402 "exact" / "exact_permit"
+# flows. They may not be exported by bankofai.x402 directly, but they are used by
+# this package (and examples) for consistent parsing/typing of nested payloads.
 # =============================================================================
 
 
 class EIP3009Authorization(BaseModel):
-    """EIP-3009 authorization data (EVM-specific, stub for Tron compatibility)."""
+    """EIP-3009 authorization data structure used by exact-style payloads."""
 
     from_: str = Field("", alias="from")
     to: str = ""
@@ -54,7 +59,7 @@ class EIP3009Authorization(BaseModel):
 
 
 class EIP712Domain(BaseModel):
-    """EIP-712 domain data (EVM-specific, stub for Tron compatibility)."""
+    """EIP-712 domain data structure."""
 
     name: Optional[str] = None
     version: Optional[str] = None
@@ -66,7 +71,7 @@ class EIP712Domain(BaseModel):
 
 
 class ExactPaymentPayload(BaseModel):
-    """Exact payment scheme payload (EVM-specific, stub for Tron compatibility)."""
+    """Exact payment scheme payload structure."""
 
     signature: str = ""
     authorization: Optional[EIP3009Authorization] = None
@@ -98,9 +103,6 @@ class FacilitatorConfig(BaseModel):
     headers: Optional[dict[str, str]] = None
 
 
-# SupportedNetworks as a type alias (Literal of known networks)
-SupportedNetworks = Literal["base", "base-sepolia", "tron", "tron-nile", "tron-shasta"]
-
 # Price type alias (matches original x402.types.Price)
 Price = Union[str, int, float, TokenAmount]
 
@@ -114,49 +116,39 @@ def process_price_to_atomic_amount(
 ) -> tuple[str, str, Optional[Any]]:
     """Convert a human-readable price to atomic amount for on-chain use.
 
-    This is a compatibility stub. For Tron networks, you should configure
-    the amount and asset address directly in PaymentRequirements.
+    This function intentionally avoids maintaining any local token registry or
+    network whitelist. All string price parsing is delegated to
+    `bankofai.x402.tokens.registry.TokenRegistry`.
 
     Args:
-        price: Human-readable price (e.g., "$1.00", 1.00)
-        network: Blockchain network identifier
+        price: Human-readable price (e.g., "0.1 USDT") or TokenAmount.
+        network: Blockchain network identifier string (passed through to TokenRegistry).
 
     Returns:
         Tuple of (atomic_amount_str, asset_address, eip712_domain_or_none)
     """
-    # Default USDT/USDC addresses per network
-    default_assets = {
-        "base": "0x833589fCD6eDb6E08f4c7C32D4f71b54bda02913",  # USDC on Base
-        "base-sepolia": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",  # USDC on Base Sepolia
-        "tron": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",  # USDT on Tron Mainnet
-        "tron-nile": "TXLAQ63Xg1NAzckPwKHvzw7CSEmLMEqcdj",  # USDT on Tron Nile
-        "tron-shasta": "TG3XXyExBkFU9nQGAEmeyA6sAP2W9Ehr4u",  # USDT on Tron Shasta
-    }
 
-    asset_address = default_assets.get(network, default_assets.get("tron", ""))
-
-    # Convert price to atomic amount (assuming 6 decimals for USDT/USDC)
-    decimals = 6
+    # Preferred path: all string prices go through TokenRegistry
     if isinstance(price, str):
-        if price.startswith("$"):
-            price = price[1:]
-        amount_float = float(price)
-    elif isinstance(price, (int, float)):
-        amount_float = float(price)
-    elif isinstance(price, TokenAmount):
-        # TokenAmount already has the right format
-        return str(price.amount), price.asset.address if price.asset else asset_address, None
-    else:
-        amount_float = float(str(price))
+        registry_network = {
+            "tron": "tron:mainnet",
+            "tron-nile": "tron:nile",
+            "tron-shasta": "tron:shasta",
+        }.get(network, network)
 
-    atomic_amount = int(amount_float * (10**decimals))
+        asset_info = TokenRegistry.parse_price(price, registry_network)
+        return str(asset_info["amount"]), str(asset_info["asset"]), None
 
-    # For Tron networks, no EIP-712 domain needed
-    eip712_domain = None
-    if network.startswith("base"):
-        eip712_domain = EIP712Domain(name="USD Coin", version="2")
+    # TokenAmount path: caller must provide explicit asset address
+    if isinstance(price, TokenAmount):
+        if not price.asset or not price.asset.address:
+            raise ValueError("TokenAmount.asset.address is required.")
+        return str(price.amount), str(price.asset.address), None
 
-    return str(atomic_amount), asset_address, eip712_domain
+    raise ValueError(
+        "Unsupported price type. Provide a string price (e.g. '0.1 USDT') with TokenRegistry available, "
+        "or pass a TokenAmount with an explicit asset address."
+    )
 
 
 # =============================================================================
@@ -177,7 +169,6 @@ __all__ = [
     "TokenAsset",
     "TokenAmount",
     "FacilitatorConfig",
-    "SupportedNetworks",
     "Price",
     # Constants & functions
     "x402_VERSION",

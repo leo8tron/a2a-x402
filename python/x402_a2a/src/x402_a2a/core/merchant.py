@@ -13,9 +13,9 @@
 # limitations under the License.
 """Payment requirements creation functions."""
 
-from typing import Optional, Any, cast
+from typing import Optional, Any
 from .._compat import process_price_to_atomic_amount, Price
-from ..types import PaymentRequirements, SupportedNetworks
+from ..types import PaymentRequirements
 
 
 def create_payment_requirements(
@@ -56,7 +56,7 @@ def create_payment_requirements(
 
     return PaymentRequirements(
         scheme=scheme,
-        network=cast(SupportedNetworks, network),
+        network=network,
         asset=asset_address,
         pay_to=pay_to_address,
         max_amount_required=max_amount_required,

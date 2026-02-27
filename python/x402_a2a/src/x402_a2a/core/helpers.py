@@ -33,7 +33,7 @@ def require_payment(
     Convenience function for the most common use case.
 
     Args:
-        price: Payment amount (e.g., "$1.00", 1.00, TokenAmount)
+        price: Payment amount (e.g., "0.0.1 USDT", "$1.00", 1.00, TokenAmount)
         pay_to_address: Ethereum address to receive payment
         resource: Resource identifier (auto-generated if None)
         network: Blockchain network (default: "base")
@@ -104,7 +104,7 @@ def paid_service(
     """Decorator to automatically require payment for a function or method.
 
     Args:
-        price: Payment amount (e.g., "$1.00", 1.00, TokenAmount)
+        price: Payment amount (e.g., "0.0.1 USDT", "$1.00", 1.00, TokenAmount)
         pay_to_address: Ethereum address to receive payment
         resource: Resource identifier (auto-generated from function name if None)
         network: Blockchain network (default: "base")
@@ -256,7 +256,7 @@ def smart_paid_service(
     before requiring new payment.
 
     Args:
-        price: Payment amount (e.g., "$1.00", 1.00, TokenAmount)
+        price: Payment amount (e.g., "0.0.1 USDT", "$1.00", 1.00, TokenAmount)
         pay_to_address: Ethereum address to receive payment
         resource: Resource identifier (auto-generated from function name if None)
         network: Blockchain network (default: "base")
@@ -264,7 +264,7 @@ def smart_paid_service(
 
     Example:
         @smart_paid_service(
-            price="$1.00",
+            price="0.0.1 USDT",
             pay_to_address="0x123...",
             description="AI text generation"
         )

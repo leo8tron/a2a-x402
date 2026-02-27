@@ -16,3 +16,4 @@ __pycache__/
 
 # Claude Code files
 claude.md
+/.idea/
